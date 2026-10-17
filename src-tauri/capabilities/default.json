@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "Права основного окна NonTorrent: IPC-события и диалог выбора файла",
+  "windows": ["main"],
+  "permissions": ["core:default", "dialog:default"]
+}

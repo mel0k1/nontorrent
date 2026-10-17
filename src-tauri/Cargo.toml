@@ -1,0 +1,38 @@
+[package]
+name = "nontorrent"
+version = "0.1.0"
+description = "NonTorrent — торрент-клиент со встроенной проверкой на вирусы"
+authors = ["mel0k1"]
+edition = "2021"
+
+[lib]
+name = "nontorrent_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+
+# движок BitTorrent (v1/v2/hybrid, DHT, uTP)
+librqbit = "9"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["sync", "time", "fs", "io-util", "net", "macros"] }
+sha2 = "0.10"
+hex = "0.4"
+walkdir = "2"
+dirs = "6"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
