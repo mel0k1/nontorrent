@@ -11,6 +11,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use tauri::Manager;
 use tokio::sync::RwLock;
 
 use crate::scanner::ScanJob;

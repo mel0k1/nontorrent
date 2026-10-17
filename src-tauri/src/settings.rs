@@ -91,7 +91,7 @@ pub fn quarantine_file(
         "quarantinedAt": now_ms(),
     });
     let _ = std::fs::write(
-        dir.join(format!("{target}.meta.json")),
+        dir.join(format!("{}.meta.json", target.display())),
         serde_json::to_string_pretty(&meta).unwrap_or_default(),
     );
 

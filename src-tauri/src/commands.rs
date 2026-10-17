@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use librqbit::{Session, TorrentIdOrHash};
+use librqbit::{Session, api::TorrentIdOrHash};
 use tauri::{AppHandle, Manager};
 
 use crate::{engine, settings, types::*, AppState};
@@ -127,13 +127,15 @@ pub async fn session_stats(app: AppHandle) -> Result<SessionStatsDto, String> {
 #[tauri::command]
 pub async fn get_scan_log(app: AppHandle) -> Result<Vec<ScanReportDto>, String> {
     let state = app.state::<AppState>();
-    Ok(state.scans.lock().unwrap().clone())
+    let scans = state.scans.lock().unwrap().clone();
+    Ok(scans)
 }
 
 #[tauri::command]
 pub async fn get_settings(app: AppHandle) -> Result<SettingsDto, String> {
     let state = app.state::<AppState>();
-    Ok(state.settings.lock().unwrap().clone())
+    let settings = state.settings.lock().unwrap().clone();
+    Ok(settings)
 }
 
 #[tauri::command]
@@ -150,7 +152,7 @@ pub async fn open_folder(app: AppHandle, id: u32) -> Result<(), String> {
         .get(TorrentIdOrHash::Id(id as usize))
         .ok_or("раздача не найдена")?;
     let dir = handle.output_folder().to_path_buf();
-    tauri_plugin_opener::open_path(dir.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
+    tauri_plugin_opener::open_path(&dir, None::<&str>).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
