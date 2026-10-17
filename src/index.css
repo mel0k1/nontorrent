@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  NonTorrent — тема «обсидиан».
+  Не чистый #000, а слои графитово-чёрного с холодным подтоном,
+  фиолетовый — единственный цветовой акцент (действия, прогресс).
+  Семантика проверки: success / warning / destructive.
+*/
+@layer base {
+  :root {
+    --background: 240 6% 94%;
+    --foreground: 240 6% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 6% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 6% 8%;
+    --primary: 258 84% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 5% 90%;
+    --secondary-foreground: 240 5% 16%;
+    --muted: 240 5% 90%;
+    --muted-foreground: 240 4% 42%;
+    --accent: 240 5% 88%;
+    --accent-foreground: 240 5% 14%;
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 5% 84%;
+    --input: 240 5% 80%;
+    --ring: 258 84% 58%;
+    --success: 152 62% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 48%;
+    --warning-foreground: 240 6% 8%;
+    --radius: 0.625rem;
+  }
+
+  .dark {
+    --background: 240 6% 4%;
+    --foreground: 240 10% 93%;
+    --card: 240 6% 6%;
+    --card-foreground: 240 10% 93%;
+    --popover: 240 7% 7%;
+    --popover-foreground: 240 10% 93%;
+    --primary: 258 90% 68%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 5% 12%;
+    --secondary-foreground: 240 8% 90%;
+    --muted: 240 5% 12%;
+    --muted-foreground: 240 5% 61%;
+    --accent: 240 5% 14%;
+    --accent-foreground: 240 8% 92%;
+    --destructive: 0 72% 56%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 5% 14%;
+    --input: 240 5% 17%;
+    --ring: 258 90% 68%;
+    --success: 152 64% 52%;
+    --success-foreground: 240 6% 6%;
+    --warning: 38 92% 58%;
+    --warning-foreground: 240 6% 6%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      Roboto,
+      Inter,
+      "Helvetica Neue",
+      Arial,
+      sans-serif;
+    /* мягкое фиолетовое свечение сверху — глубина без «чистого чёрного» */
+    background-image: radial-gradient(
+      1100px 420px at 50% -8%,
+      hsl(258 90% 68% / 0.06),
+      transparent 70%
+    );
+    background-attachment: fixed;
+  }
+  ::selection {
+    background: hsl(258 90% 68% / 0.35);
+  }
+}
+
+/* тонкие скроллбары в тон темы */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(240 5% 16%);
+  border-radius: 8px;
+  border: 2px solid hsl(240 6% 4%);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(240 5% 24%);
+}
