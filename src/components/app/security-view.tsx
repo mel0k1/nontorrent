@@ -166,10 +166,12 @@ export function SecurityView() {
       .catch(() => {});
   }, [api, scanLog.length]);
 
-  // карантин: подгружаем сразу и при возврате на страницу
+  // карантин: подгружаем сразу, при возврате на страницу и когда меняется
+  // счётчик «В карантине» — например, сканер только что изолировал угрозу
+  const quarantinedFiles = info?.quarantinedFiles ?? 0;
   useEffect(() => {
     loadQuarantine();
-  }, [loadQuarantine]);
+  }, [loadQuarantine, quarantinedFiles]);
 
   async function restoreItem(name: string) {
     setQBusy(true);

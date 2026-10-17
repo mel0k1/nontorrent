@@ -76,6 +76,7 @@ pub async fn get_torrent_details(app: AppHandle, id: u32) -> Result<TorrentDetai
     let scans = state.scans.lock().unwrap().clone();
     let mut files = Vec::with_capacity(md_files.len());
     for (index, rel, size) in md_files {
+        let rel_path = std::path::Path::new(&rel);
         let included = only_files
             .as_ref()
             .map(|o| o.contains(&(index as usize)))
@@ -86,7 +87,13 @@ pub async fn get_torrent_details(app: AppHandle, id: u32) -> Result<TorrentDetai
         let verdict = scans
             .iter()
             .find(|r| r.file == full.to_string_lossy())
-            .or_else(|| scans.iter().find(|r| r.file.ends_with(&rel)))
+            .or_else(|| {
+                // сравнение по компонентам пути: «mydir/file.exe» не должна
+                // совпасть с «dir/file.exe» при поиске по суффиксу
+                scans
+                    .iter()
+                    .find(|r| std::path::Path::new(&r.file).ends_with(rel_path))
+            })
             .map(|r| r.verdict.clone());
         files.push(TorrentFileDto {
             index,
@@ -243,10 +250,28 @@ pub async fn restore_quarantine(app: AppHandle, name: String) -> Result<(), Stri
 #[tauri::command]
 pub async fn delete_quarantine(app: AppHandle, name: String) -> Result<(), String> {
     let target = quarantine_target(&app, &name)?;
+    let (original, sha256, _) = quarantine_meta(&target);
     if target.exists() {
         std::fs::remove_file(&target).map_err(|e| e.to_string())?;
     }
     let _ = std::fs::remove_file(PathBuf::from(format!("{}.meta.json", target.display())));
+
+    // синхронизируем журнал: файла больше нигде нет — метку карантина снимаем,
+    // чтобы кнопка «В карантин» не ссылалась на несуществующий файл
+    {
+        let state = app.state::<AppState>();
+        let mut scans = state.scans.lock().unwrap();
+        for r in scans.iter_mut() {
+            if !r.quarantined {
+                continue;
+            }
+            let by_path = !original.is_empty() && r.file == original;
+            let by_sha = sha256.is_some() && r.sha256 == sha256;
+            if by_path || by_sha {
+                r.quarantined = false;
+            }
+        }
+    }
     tracing::info!("удалено из карантина: {}", name);
     Ok(())
 }

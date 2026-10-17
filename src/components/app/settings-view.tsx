@@ -640,7 +640,7 @@ export function SettingsView() {
               <p className="text-sm">
                 Текущая версия{" "}
                 <span className="font-mono text-xs text-muted-foreground">
-                  {updateInfo?.currentVersion ?? "0.3.0"}
+                  {updateInfo?.currentVersion ?? __APP_VERSION__}
                 </span>
                 {updateInfo?.updateAvailable && (
                   <>
