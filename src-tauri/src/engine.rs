@@ -212,6 +212,29 @@ async fn poll_loop(app: AppHandle, tx: tokio::sync::mpsc::UnboundedSender<ScanJo
     }
 }
 
+/// Пауза/продолжение всех раздач (трей, горячие действия)
+pub async fn set_all_paused(app: &AppHandle, paused: bool) -> Result<(), String> {
+    let session = get_session(app).await?;
+    let list: Vec<Arc<ManagedTorrent>> =
+        session.with_torrents(|it| it.map(|(_, t)| t.clone()).collect());
+    let mut changed = 0usize;
+    for t in list {
+        let currently_paused = t.is_paused();
+        let result = if paused && !currently_paused {
+            session.pause(&t).await
+        } else if !paused && currently_paused {
+            session.unpause(&t).await
+        } else {
+            continue;
+        };
+        if result.is_ok() {
+            changed += 1;
+        }
+    }
+    tracing::info!("{} раздач {}", changed, if paused { "на паузе" } else { "продолжено" });
+    Ok(())
+}
+
 // ---------- построение DTO ----------
 
 pub fn build_dto(state: &crate::AppState, id: u32, t: &Arc<ManagedTorrent>) -> TorrentDto {

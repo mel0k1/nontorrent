@@ -1,6 +1,6 @@
 import {
   Ban,
-  FileWarning,
+  Binary,
   Fingerprint,
   HardDrive,
   ShieldAlert,
@@ -9,6 +9,7 @@ import {
   Sigma,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,7 +35,7 @@ import {
 import { useAppState } from "@/hooks/use-app-state";
 import { fmtBytes, fmtTime, shortHash } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { ScanVerdict } from "@/types";
+import type { ScanVerdict, SecurityInfo } from "@/types";
 
 function VerdictBadge({ verdict }: { verdict: ScanVerdict }) {
   switch (verdict) {
@@ -111,6 +112,11 @@ const PIPELINE = [
     text: "двойные расширения, MZ-сигнатура внутри «не-исполняемых» файлов, упаковщики по энтропии",
   },
   {
+    icon: Binary,
+    title: "YARA",
+    text: "локальные сигнатуры: дропперы, эксплойты ярлыков, упаковщики. Работает без интернета",
+  },
+  {
     icon: HardDrive,
     title: "clamd (ClamAV)",
     text: "если указан адрес демона — полная сигнатурная проверка локальным движком",
@@ -118,7 +124,7 @@ const PIPELINE = [
   {
     icon: Fingerprint,
     title: "VirusTotal",
-    text: "отпечаток файла сверяется с 70+ движками (по хэшу, без загрузки файла; нужен свой API-ключ)",
+    text: "отпечаток файла сверяется с 70+ движками по хэшу; вердикты кэшируются на диск между запусками",
   },
   {
     icon: Ban,
@@ -128,15 +134,22 @@ const PIPELINE = [
 ];
 
 export function SecurityView() {
-  const { scanLog, quarantine } = useAppState();
+  const { scanLog, quarantine, api } = useAppState();
+  const [info, setInfo] = useState<SecurityInfo | null>(null);
+
+  useEffect(() => {
+    api
+      .getSecurityInfo()
+      .then(setInfo)
+      .catch(() => {});
+  }, [api, scanLog.length]);
 
   const malicious = scanLog.filter((e) => e.verdict === "malicious").length;
   const suspicious = scanLog.filter((e) => e.verdict === "suspicious").length;
-  const quarantined = scanLog.filter((e) => e.quarantined).length;
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <StatCard
           icon={<ShieldCheck className="h-4 w-4" />}
           label="Проверок в журнале"
@@ -158,7 +171,19 @@ export function SecurityView() {
         <StatCard
           icon={<Ban className="h-4 w-4" />}
           label="В карантине"
-          value={quarantined}
+          value={info?.quarantinedFiles ?? 0}
+          tone="neutral"
+        />
+        <StatCard
+          icon={<Binary className="h-4 w-4" />}
+          label="Правила YARA"
+          value={info?.yaraRules ?? 0}
+          tone="neutral"
+        />
+        <StatCard
+          icon={<Fingerprint className="h-4 w-4" />}
+          label="Кэш вердиктов VT"
+          value={info?.vtCacheEntries ?? 0}
           tone="neutral"
         />
       </div>
@@ -283,7 +308,7 @@ export function SecurityView() {
             Конвейер безопасности NonTorrent — от куска торрента до вердикта
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-5">
+        <CardContent className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           {PIPELINE.map((step, i) => (
             <div key={step.title} className="rounded-md border bg-secondary/30 p-3">
               <div className="flex items-center gap-2">

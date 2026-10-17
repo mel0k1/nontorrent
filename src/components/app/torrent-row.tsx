@@ -139,14 +139,19 @@ export function TorrentRow({ torrent }: { torrent: Torrent }) {
                 {torrent.name}
               </span>
             </TooltipTrigger>
-            <TooltipContent side="top">{torrent.name}</TooltipContent>
+            <TooltipContent side="top" className="max-w-md break-all">
+              <p>{torrent.name}</p>
+              <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                {torrent.outputPath}
+              </p>
+            </TooltipContent>
           </Tooltip>
           <ScanBadge torrent={torrent} />
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground tabular-nums">
           <span>{fmtBytes(torrent.sizeBytes)}</span>
           <span>
-            пиры {torrent.peers} · сиды {torrent.seeds}
+            сиды {torrent.seeds} · пиры {torrent.peers}
           </span>
           {torrent.downSpeed > 0 && (
             <span className="text-primary">↓ {fmtSpeed(torrent.downSpeed)}</span>
@@ -154,7 +159,7 @@ export function TorrentRow({ torrent }: { torrent: Torrent }) {
           {torrent.upSpeed > 0 && (
             <span className="text-success">↑ {fmtSpeed(torrent.upSpeed)}</span>
           )}
-          <span className="truncate">{torrent.outputPath}</span>
+          {torrent.uploadedBytes > 0 && <span>отдано {fmtBytes(torrent.uploadedBytes)}</span>}
         </div>
       </div>
 

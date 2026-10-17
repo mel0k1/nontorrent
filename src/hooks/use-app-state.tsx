@@ -27,6 +27,12 @@ const defaultSettings: Settings = {
   clamdAddress: "",
   maxDownMbps: null,
   maxUpMbps: null,
+  yaraEnabled: true,
+  closeToTray: true,
+  // автозапуск по умолчанию отключён — включается только в настройках
+  autostart: false,
+  schedulerEnabled: false,
+  schedulerRules: [],
 };
 
 const zeroStats: SessionStats = {

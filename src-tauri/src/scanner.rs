@@ -10,7 +10,7 @@ use tokio::{
     sync::mpsc::UnboundedReceiver,
 };
 
-use crate::{settings, types::*};
+use crate::{settings, types::*, vt_cache, yara};
 
 const MAX_FILES_PER_JOB: usize = 512;
 // Строка EICAR — стандартный тестовый образец для проверки антивирусных движков
@@ -125,7 +125,27 @@ async fn scan_file(app: &AppHandle, path: &Path, job: &ScanJob) -> Option<ScanRe
 
     let suspicious = !detections.is_empty();
 
-    // 6. clamd (ClamAV) — локальная сигнатурная проверка
+    // 6. YARA — локальные сигнатуры (встроенные + пользовательские правила).
+    // Большие файлы (видео, образы) сканируем только при подозрении.
+    if app_settings.yara_enabled {
+        if let Some(engine) = state.yara.lock().unwrap().as_ref() {
+            let big = size > yara::YARA_ALWAYS_LIMIT;
+            let interesting = risky || head.starts_with(b"MZ") || (ext == "lnk");
+            if !big || interesting {
+                if let Some(found) = engine.scan_file(path) {
+                    if !found.rules.is_empty() {
+                        engines.push("YARA".into());
+                        detections.extend(found.detections);
+                        if found.malicious {
+                            malicious = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 7. clamd (ClamAV) — локальная сигнатурная проверка
     if !app_settings.clamd_address.is_empty() && (suspicious || size <= 10 * 1024 * 1024) {
         match clamd_scan(&app_settings.clamd_address, path).await {
             Ok(Some(sig)) => {
@@ -138,8 +158,9 @@ async fn scan_file(app: &AppHandle, path: &Path, job: &ScanJob) -> Option<ScanRe
         }
     }
 
-    // 7. VirusTotal — по отпечатку, без загрузки файла.
+    // 8. VirusTotal — по отпечатку, без загрузки файла.
     // Ключ: свой из настроек → NT_VT_API_TOKEN → встроенный обфусцированный.
+    // Вердикты кэшируются на диск и переживают перезапуски (см. vt_cache.rs).
     if let Some(key) =
         crate::vt::effective_key(&app_settings.vt_api_key, app_settings.use_builtin_vt)
     {
@@ -339,8 +360,19 @@ async fn vt_lookup(
 ) -> Option<(String, Vec<String>)> {
     let state = app.state::<crate::AppState>();
 
-    if let Some(hit) = state.vt_cache.lock().unwrap().get(sha).cloned() {
-        return Some(hit);
+    // дисковый кэш уже загружен в память при старте — ищем с учётом TTL
+    {
+        let now = now_ms();
+        let mut cache = state.vt_cache.lock().unwrap();
+        match cache.get(sha) {
+            Some(entry) if !entry.expired(now) => {
+                return Some((entry.verdict.clone(), entry.detections.clone()));
+            }
+            Some(_) => {
+                cache.remove(sha); // просрочено — перепроверим по сети
+            }
+            None => {}
+        }
     }
 
     // бесплатный тариф: не чаще ~4 запросов в минуту
@@ -364,9 +396,10 @@ async fn vt_lookup(
         .await
         .ok()?;
 
-    let result = if resp.status().as_u16() == 404 {
-        // отпечаток неизвестен движкам — считаем чистым
-        Some(("clean".to_string(), Vec::new()))
+    // (вердикт, детекты, known: встречал ли VT файл — влияет на TTL кэша)
+    let result: Option<(String, Vec<String>, bool)> = if resp.status().as_u16() == 404 {
+        // отпечаток неизвестен движкам — считаем чистым, но недолго (новые файлы быстро набирают детекты)
+        Some(("clean".to_string(), Vec::new(), false))
     } else if !resp.status().is_success() {
         None
     } else {
@@ -383,14 +416,33 @@ async fn vt_lookup(
                 vec![format!(
                     "VirusTotal: {mal} malicious / {sus} suspicious из {total} движков"
                 )],
+                true,
             ))
+        } else if und + har > 0 {
+            Some(("clean".to_string(), Vec::new(), true))
         } else {
-            Some(("clean".to_string(), Vec::new()))
+            Some(("clean".to_string(), Vec::new(), false))
         }
     };
 
-    if let Some(r) = &result {
-        state.vt_cache.lock().unwrap().insert(sha.to_string(), r.clone());
+    if let Some((verdict, dets, known)) = &result {
+        {
+            let mut cache = state.vt_cache.lock().unwrap();
+            cache.insert(
+                sha.to_string(),
+                vt_cache::VtDiskEntry {
+                    verdict: verdict.clone(),
+                    detections: dets.clone(),
+                    ts: now_ms(),
+                    known: *known,
+                },
+            );
+        }
+        // сохраняем на диск — кэш переживает перезапуски
+        if let Ok(path) = settings::vt_cache_path(app) {
+            let snapshot = state.vt_cache.lock().unwrap().clone();
+            vt_cache::save(&path, &snapshot);
+        }
     }
-    result
+    result.map(|(v, d, _)| (v, d))
 }

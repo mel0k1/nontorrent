@@ -24,6 +24,16 @@ pub fn quarantine_dir(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app_data_dir(app)?.join("quarantine"))
 }
 
+/// Файл дискового кэша вердиктов VirusTotal (живёт между запусками)
+pub fn vt_cache_path(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(app_data_dir(app)?.join("vt_cache.json"))
+}
+
+/// Папка пользовательских YARA-правил (подхватываются все *.yar / *.yara)
+pub fn yara_rules_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(app_data_dir(app)?.join("yara_rules"))
+}
+
 pub fn load_settings(app: &AppHandle) -> SettingsDto {
     settings_path(app)
         .ok()

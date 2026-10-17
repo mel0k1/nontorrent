@@ -9,7 +9,7 @@ const NAV = [
 ] as const;
 
 export function Sidebar() {
-  const { view, setView, torrents, scanLog, api } = useAppState();
+  const { view, setView, torrents, scanLog } = useAppState();
 
   const activeCount = torrents.filter(
     (t) => t.status === "downloading" || t.status === "checking"
@@ -72,21 +72,6 @@ export function Sidebar() {
           );
         })}
       </nav>
-
-      <div className="border-t p-4">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span
-            className={cn(
-              "h-2 w-2 rounded-full",
-              api.isDemo ? "bg-warning" : "bg-success"
-            )}
-          />
-          {api.isDemo ? "Демо-режим (браузер)" : "Движок активен"}
-        </div>
-        <p className="mt-1.5 text-[11px] text-muted-foreground/70">
-          v0.1.0 · librqbit · Tauri 2
-        </p>
-      </div>
     </aside>
   );
 }

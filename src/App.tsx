@@ -3,7 +3,6 @@ import { AddTorrentDialog } from "@/components/app/add-torrent-dialog";
 import { SecurityView } from "@/components/app/security-view";
 import { SettingsView } from "@/components/app/settings-view";
 import { Sidebar } from "@/components/app/sidebar";
-import { StatusBar } from "@/components/app/status-bar";
 import { Topbar } from "@/components/app/topbar";
 import { TorrentList } from "@/components/app/torrent-list";
 import { AppProvider, useAppState } from "@/hooks/use-app-state";
@@ -26,7 +25,6 @@ function Shell() {
             {view === "settings" && <SettingsView />}
           </div>
         </main>
-        <StatusBar />
       </div>
 
       <AddTorrentDialog open={addOpen} onOpenChange={setAddOpen} />

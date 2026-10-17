@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import type {
   Api,
   ScanLogEntry,
+  SecurityInfo,
   SessionStats,
   Settings,
   Torrent,
@@ -33,6 +34,26 @@ export function createTauriApi(): Api {
 
     async removeTorrent(id, deleteFiles) {
       await invoke("remove_torrent", { id, deleteFiles });
+    },
+
+    async pauseAll() {
+      await invoke("pause_all_torrents");
+    },
+
+    async resumeAll() {
+      await invoke("resume_all_torrents");
+    },
+
+    async getAutostart(): Promise<boolean> {
+      return invoke<boolean>("get_autostart");
+    },
+
+    async setAutostart(enabled) {
+      await invoke("set_autostart", { enabled });
+    },
+
+    async getSecurityInfo(): Promise<SecurityInfo> {
+      return invoke<SecurityInfo>("get_security_info");
     },
 
     async getTorrents(): Promise<Torrent[]> {

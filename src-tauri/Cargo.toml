@@ -1,6 +1,6 @@
 [package]
 name = "nontorrent"
-version = "0.1.0"
+version = "0.2.0"
 description = "NonTorrent — торрент-клиент со встроенной проверкой на вирусы"
 authors = ["mel0k1"]
 edition = "2021"
@@ -13,12 +13,28 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-single-instance = "2"
 
 # движок BitTorrent (v1/v2/hybrid, DHT, uTP)
 librqbit = "9"
+
+# YARA-движок сигнатур (VirusTotal yara-x), без wasm-модулей
+yara-x = { version = "1.21", default-features = false, features = [
+  "generate-proto-code",
+  "constant-folding",
+  "exact-atoms",
+  "fast-regexp",
+  "pe-module",
+  "elf-module",
+  "hash-module",
+  "math-module",
+] }
+memmap2 = "0.9"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

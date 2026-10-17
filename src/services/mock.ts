@@ -2,6 +2,7 @@ import type {
   Api,
   AppEvent,
   ScanLogEntry,
+  SecurityInfo,
   SessionStats,
   Settings,
   Torrent,
@@ -209,6 +210,21 @@ export function createMockApi(): Api {
     clamdAddress: "",
     maxDownMbps: null,
     maxUpMbps: null,
+    yaraEnabled: true,
+    closeToTray: true,
+    // автозапуск по умолчанию отключён — включается только в настройках
+    autostart: false,
+    schedulerEnabled: false,
+    schedulerRules: [
+      { days: [0, 1, 2, 3, 4], start: "09:00", end: "23:00", downMbps: 50, upMbps: 10 },
+    ],
+  };
+
+  const securityInfo: SecurityInfo = {
+    yaraRules: 10,
+    customRuleFiles: 0,
+    vtCacheEntries: 3,
+    quarantinedFiles: 1,
   };
 
   const nextTorrentId = () =>
@@ -344,22 +360,40 @@ export function createMockApi(): Api {
       );
     },
 
-    async removeTorrent(id, deleteFiles) {
+    async removeTorrent(id, _deleteFiles) {
+      void _deleteFiles;
       torrents = torrents.filter((t) => t.id !== id);
-      if (deleteFiles && Math.random() < 0.5) {
-        // в демо иногда оставляем след в журнале — файлы «удалены»
-        pushEntry({
-          file: `tor#removed-${id}/* (файлы удалены вместе с раздачей)`,
-          torrentName: null,
-          sizeBytes: 0,
-          sha256: null,
-          verdict: "skipped",
-          detections: [],
-          engines: ["—"],
-          scannedAt: Date.now(),
-          quarantined: false,
-        });
-      }
+    },
+
+    async pauseAll() {
+      torrents = torrents.map((t) =>
+        t.status === "downloading" || t.status === "checking"
+          ? { ...t, status: "paused" as const, downSpeed: 0, etaSeconds: null }
+          : t
+      );
+    },
+
+    async resumeAll() {
+      torrents = torrents.map((t) =>
+        t.status === "paused"
+          ? {
+              ...t,
+              status: t.progress >= 100 ? ("seeding" as const) : ("downloading" as const),
+            }
+          : t
+      );
+    },
+
+    async getAutostart() {
+      return settings.autostart;
+    },
+
+    async setAutostart(enabled) {
+      settings.autostart = enabled;
+    },
+
+    async getSecurityInfo() {
+      return { ...securityInfo };
     },
 
     async getTorrents() {
@@ -413,7 +447,7 @@ export function createMockApi(): Api {
 
     async checkUpdate() {
       return {
-        currentVersion: "0.1.0",
+        currentVersion: "0.2.0",
         latestVersion: null,
         updateAvailable: false,
         notes: null,

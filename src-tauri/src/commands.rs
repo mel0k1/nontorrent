@@ -171,3 +171,71 @@ pub async fn quarantine_entry(app: AppHandle, id: String) -> Result<(), String> 
     }
     Ok(())
 }
+
+#[tauri::command]
+pub async fn pause_all_torrents(app: AppHandle) -> Result<(), String> {
+    engine::set_all_paused(&app, true).await
+}
+
+#[tauri::command]
+pub async fn resume_all_torrents(app: AppHandle) -> Result<(), String> {
+    engine::set_all_paused(&app, false).await
+}
+
+#[tauri::command]
+pub async fn get_autostart(app: AppHandle) -> Result<bool, String> {
+    use tauri_plugin_autostart::ManagerExt;
+    app.autolaunch()
+        .is_enabled()
+        .map_err(|e| format!("автозапуск: {e}"))
+}
+
+#[tauri::command]
+pub async fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
+    use tauri_plugin_autostart::ManagerExt;
+    let autolaunch = app.autolaunch();
+    let result = if enabled {
+        autolaunch.enable()
+    } else {
+        autolaunch.disable()
+    };
+    result.map_err(|e| format!("автозапуск: {e}"))
+}
+
+/// Сводка о безопасности: правила YARA, кэш VT, карантин
+#[tauri::command]
+pub async fn get_security_info(app: AppHandle) -> Result<SecurityInfoDto, String> {
+    let state = app.state::<AppState>();
+
+    let (yara_rules, custom_rule_files) = {
+        let guard = state.yara.lock().unwrap();
+        match guard.as_ref() {
+            Some(e) => (e.rule_count, e.custom_files),
+            None => (0, 0),
+        }
+    };
+
+    let vt_cache_entries = state.vt_cache.lock().unwrap().len() as u32;
+
+    let quarantined_files = settings::quarantine_dir(&app)
+        .ok()
+        .and_then(|dir| std::fs::read_dir(dir).ok())
+        .map(|rd| {
+            rd.filter_map(|e| e.ok())
+                .filter(|e| {
+                    e.path()
+                        .extension()
+                        .and_then(|x| x.to_str())
+                        .is_some_and(|x| x == "quarantined")
+                })
+                .count() as u32
+        })
+        .unwrap_or(0);
+
+    Ok(SecurityInfoDto {
+        yara_rules,
+        custom_rule_files,
+        vt_cache_entries,
+        quarantined_files,
+    })
+}

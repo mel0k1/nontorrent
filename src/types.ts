@@ -70,6 +70,27 @@ export interface Settings {
   clamdAddress: string;
   maxDownMbps: number | null;
   maxUpMbps: number | null;
+  yaraEnabled: boolean;
+  closeToTray: boolean;
+  autostart: boolean;
+  schedulerEnabled: boolean;
+  schedulerRules: SchedulerRule[];
+}
+
+export interface SchedulerRule {
+  /** 0 = понедельник … 6 = воскресенье */
+  days: number[];
+  start: string;
+  end: string;
+  downMbps: number | null;
+  upMbps: number | null;
+}
+
+export interface SecurityInfo {
+  yaraRules: number;
+  customRuleFiles: number;
+  vtCacheEntries: number;
+  quarantinedFiles: number;
 }
 
 export interface UpdateAsset {
@@ -107,6 +128,8 @@ export interface Api {
   pauseTorrent(id: number): Promise<void>;
   resumeTorrent(id: number): Promise<void>;
   removeTorrent(id: number, deleteFiles: boolean): Promise<void>;
+  pauseAll(): Promise<void>;
+  resumeAll(): Promise<void>;
   getTorrents(): Promise<Torrent[]>;
   getStats(): Promise<SessionStats>;
   getScanLog(): Promise<ScanLogEntry[]>;
@@ -114,6 +137,9 @@ export interface Api {
   saveSettings(s: Settings): Promise<void>;
   openFolder(id: number): Promise<void>;
   quarantineEntry(id: string): Promise<void>;
+  getAutostart(): Promise<boolean>;
+  setAutostart(enabled: boolean): Promise<void>;
+  getSecurityInfo(): Promise<SecurityInfo>;
   pickTorrentFile(): Promise<string | null>;
   checkUpdate(): Promise<UpdateInfo>;
   downloadUpdate(url: string, name: string): Promise<string>;
