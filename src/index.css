@@ -3,62 +3,67 @@
 @tailwind utilities;
 
 /*
-  NonTorrent — тема «обсидиан».
-  Не чистый #000, а слои графитово-чёрного с холодным подтоном,
-  фиолетовый — единственный цветовой акцент (действия, прогресс).
-  Семантика проверки: success / warning / destructive.
+  NonTorrent — тема «графит».
+  Правила палитры: никакого фиолетового, пурпурного, неона, градиентов,
+  стекломорфизма. Только оттенки чёрного: графит, уголь, серый, светлый текст.
+  Акцент — инвертированная светлая заливка (кнопки, активные состояния),
+  только там, где он действительно нужен. Семантика проверки (успех/внимание/
+  угроза) — приглушённая, без кислотных оттенков. Допустимо слабое белое
+  свечение (focus-кольца, фоновая подсветка сверху) — нигде больше.
+  Шрифты: Onest Variable (интерфейс), JetBrains Mono Variable (цифры, пути).
 */
 @layer base {
   :root {
-    --background: 240 6% 94%;
+    --background: 240 5% 95%;
     --foreground: 240 6% 8%;
     --card: 0 0% 100%;
     --card-foreground: 240 6% 8%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 6% 8%;
-    --primary: 258 84% 58%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 90%;
+    --primary: 240 5% 12%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 5% 91%;
     --secondary-foreground: 240 5% 16%;
-    --muted: 240 5% 90%;
+    --muted: 240 5% 91%;
     --muted-foreground: 240 4% 42%;
-    --accent: 240 5% 88%;
+    --accent: 240 5% 89%;
     --accent-foreground: 240 5% 14%;
-    --destructive: 0 72% 48%;
+    --destructive: 0 45% 44%;
     --destructive-foreground: 0 0% 100%;
     --border: 240 5% 84%;
     --input: 240 5% 80%;
-    --ring: 258 84% 58%;
-    --success: 152 62% 40%;
+    --ring: 240 4% 55%;
+    --success: 152 30% 36%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 48%;
-    --warning-foreground: 240 6% 8%;
+    --warning: 38 45% 42%;
+    --warning-foreground: 0 0% 100%;
     --radius: 0.625rem;
   }
 
   .dark {
     --background: 240 6% 4%;
-    --foreground: 240 10% 93%;
+    --foreground: 240 8% 92%;
     --card: 240 6% 6%;
-    --card-foreground: 240 10% 93%;
+    --card-foreground: 240 8% 92%;
     --popover: 240 7% 7%;
-    --popover-foreground: 240 10% 93%;
-    --primary: 258 90% 68%;
-    --primary-foreground: 0 0% 100%;
+    --popover-foreground: 240 8% 92%;
+    /* акцент = светлый графит: инвертированные кнопки, активные метки */
+    --primary: 240 5% 90%;
+    --primary-foreground: 240 6% 8%;
     --secondary: 240 5% 12%;
     --secondary-foreground: 240 8% 90%;
     --muted: 240 5% 12%;
     --muted-foreground: 240 5% 61%;
     --accent: 240 5% 14%;
     --accent-foreground: 240 8% 92%;
-    --destructive: 0 72% 56%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 42% 58%;
+    --destructive-foreground: 240 6% 6%;
     --border: 240 5% 14%;
     --input: 240 5% 17%;
-    --ring: 258 90% 68%;
-    --success: 152 64% 52%;
+    --ring: 240 4% 68%;
+    --success: 152 32% 55%;
     --success-foreground: 240 6% 6%;
-    --warning: 38 92% 58%;
+    --warning: 38 40% 58%;
     --warning-foreground: 240 6% 6%;
   }
 }
@@ -75,25 +80,24 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family:
+      "Onest Variable",
       ui-sans-serif,
       system-ui,
-      -apple-system,
       "Segoe UI",
       Roboto,
-      Inter,
       "Helvetica Neue",
       Arial,
       sans-serif;
-    /* мягкое фиолетовое свечение сверху — глубина без «чистого чёрного» */
+    /* слабая белая подсветка сверху — глубина фона без «чистого чёрного» */
     background-image: radial-gradient(
       1100px 420px at 50% -8%,
-      hsl(258 90% 68% / 0.06),
+      hsl(0 0% 100% / 0.025),
       transparent 70%
     );
     background-attachment: fixed;
   }
   ::selection {
-    background: hsl(258 90% 68% / 0.35);
+    background: hsl(0 0% 100% / 0.16);
   }
 }
 
