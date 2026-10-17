@@ -113,7 +113,9 @@ pub fn run() {
                 let app = window.app_handle();
                 let close_to_tray = {
                     let state = app.state::<AppState>();
-                    state.settings.lock().unwrap().close_to_tray
+                    // промежуточная переменная: guard должен умереть до конца блока
+                    let v = state.settings.lock().unwrap().close_to_tray;
+                    v
                 };
                 if close_to_tray {
                     let _ = window.hide();

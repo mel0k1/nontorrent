@@ -106,7 +106,9 @@ pub fn spawn(app: tauri::AppHandle) {
             };
             let settings = {
                 let state = app.state::<crate::AppState>();
-                state.settings.lock().unwrap().clone()
+                // промежуточная переменная: guard должен умереть до конца блока
+                let s = state.settings.lock().unwrap().clone();
+                s
             };
 
             let want = desired_limits(&settings);
