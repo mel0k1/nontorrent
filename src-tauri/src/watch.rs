@@ -83,6 +83,21 @@ async fn watch_tick(app: &AppHandle) -> Result<(), String> {
             }
             Err(e) => {
                 tracing::warn!("watch: не удалось добавить «{}»: {e}", path.display());
+                // битый .torrent сам не исправится: помечаем файл как *.failed,
+                // чтобы не повторять попытку каждые 5 секунд; если rename не взял —
+                // запоминаем путь в памяти сессии
+                let mut handled = false;
+                if let Some(name) = path.file_name() {
+                    let failed = dir_path.join(format!("{}.failed", name.to_string_lossy()));
+                    if std::fs::rename(&path, &failed).is_ok() {
+                        tracing::info!("watch: файл помечен как {}", failed.display());
+                        handled = true;
+                    }
+                }
+                if !handled {
+                    state.watch_seen.lock().unwrap().insert(src);
+                }
+                continue;
             }
         }
 

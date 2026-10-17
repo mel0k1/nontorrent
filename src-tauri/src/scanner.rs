@@ -249,7 +249,67 @@ async fn publish(app: &AppHandle, torrent_id: Option<u32>, mut report: ScanRepor
                 }
             });
         }
+
+        // исключаем файл из раздачи: карантин убрал его с диска, и без этого
+        // librqbit после перезапуска докачал бы вредонос заново
+        if let Some(tid) = torrent_id {
+            if let Err(e) = exclude_file_from_torrent(app, tid, &report.file).await {
+                tracing::debug!("файл не исключён из раздачи: {e}");
+            }
+        }
     }
+}
+
+/// Убрать файл из списка скачиваемых раздачи (после карантина).
+/// Пустой список допустим — раздача просто не будет ничего качать.
+async fn exclude_file_from_torrent(
+    app: &AppHandle,
+    torrent_id: u32,
+    file_path: &str,
+) -> Result<(), String> {
+    let session = crate::engine::get_session(app).await?;
+    let handle = session
+        .get(librqbit::api::TorrentIdOrHash::Id(torrent_id as usize))
+        .ok_or("раздача не найдена")?;
+
+    let output = handle.output_folder().to_path_buf();
+    let rel = std::path::Path::new(file_path)
+        .strip_prefix(&output)
+        .map_err(|_| "файл вне папки раздачи")?
+        .to_path_buf();
+
+    let total = handle
+        .with_metadata(|md| md.file_infos.len())
+        .map_err(|e| e.to_string())?;
+    if total == 0 {
+        return Err("метаданные ещё не получены".into());
+    }
+
+    let index = handle
+        .with_metadata(|md| {
+            md.file_infos
+                .iter()
+                .position(|fi| fi.relative_filename == rel)
+        })
+        .map_err(|e| e.to_string())?
+        .ok_or("файл не найден в раздаче")?;
+
+    let mut next: std::collections::HashSet<usize> = handle
+        .only_files()
+        .map(|v| v.into_iter().collect())
+        .unwrap_or_else(|| (0..total).collect());
+    next.remove(&index);
+
+    session
+        .update_only_files(&handle, &next)
+        .await
+        .map_err(|e| e.to_string())?;
+    tracing::info!(
+        "файл исключён из раздачи #{}: {}",
+        torrent_id,
+        rel.display()
+    );
+    Ok(())
 }
 
 // ---------- вспомогательные процедуры ----------
