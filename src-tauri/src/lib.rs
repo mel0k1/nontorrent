@@ -3,6 +3,8 @@ mod engine;
 mod scanner;
 mod settings;
 mod types;
+mod updates;
+mod vt;
 
 use std::{
     collections::{HashMap, HashSet},
@@ -28,6 +30,7 @@ pub struct AppState {
     pub completed_scanned: Arc<Mutex<HashSet<u32>>>,
     pub vt_cache: Arc<Mutex<HashMap<String, (String, Vec<String>)>>>,
     pub vt_last: Arc<Mutex<Option<std::time::Instant>>>,
+    pub update_busy: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl AppState {
@@ -46,6 +49,7 @@ impl AppState {
             completed_scanned: Arc::new(Mutex::new(HashSet::new())),
             vt_cache: Arc::new(Mutex::new(HashMap::new())),
             vt_last: Arc::new(Mutex::new(None)),
+            update_busy: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
     }
 }
@@ -79,6 +83,9 @@ pub fn run() {
             commands::save_settings,
             commands::open_folder,
             commands::quarantine_entry,
+            updates::check_updates,
+            updates::download_update,
+            updates::install_update,
         ])
         .run(tauri::generate_context!())
         .expect("NonTorrent: не удалось запустить приложение");

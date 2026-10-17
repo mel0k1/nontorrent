@@ -138,11 +138,14 @@ async fn scan_file(app: &AppHandle, path: &Path, job: &ScanJob) -> Option<ScanRe
         }
     }
 
-    // 7. VirusTotal — по отпечатку, без загрузки файла
-    if !app_settings.vt_api_key.is_empty() {
+    // 7. VirusTotal — по отпечатку, без загрузки файла.
+    // Ключ: свой из настроек → NT_VT_API_TOKEN → встроенный обфусцированный.
+    if let Some(key) =
+        crate::vt::effective_key(&app_settings.vt_api_key, app_settings.use_builtin_vt)
+    {
         if let Some(sha) = &sha_hex {
             if suspicious || size <= 50 * 1024 * 1024 {
-                if let Some((verdict, dets)) = vt_lookup(app, &app_settings.vt_api_key, sha).await {
+                if let Some((verdict, dets)) = vt_lookup(app, &key, sha).await {
                     engines.push("VirusTotal".into());
                     if !dets.is_empty() {
                         detections.extend(dets);

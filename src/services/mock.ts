@@ -205,6 +205,7 @@ export function createMockApi(): Api {
     scanWhileDownloading: true,
     quarantineThreats: true,
     vtApiKey: "",
+    useBuiltInVt: true,
     clamdAddress: "",
     maxDownMbps: null,
     maxUpMbps: null,
@@ -408,6 +409,29 @@ export function createMockApi(): Api {
 
     async pickTorrentFile() {
       return null;
+    },
+
+    async checkUpdate() {
+      return {
+        currentVersion: "0.1.0",
+        latestVersion: null,
+        updateAvailable: false,
+        notes: null,
+        publishedAt: null,
+        assets: [],
+      };
+    },
+
+    async downloadUpdate() {
+      throw new Error("в демо-режиме обновления недоступны");
+    },
+
+    async installUpdate() {
+      // в браузере некуда устанавливать
+    },
+
+    onUpdateProgress() {
+      return () => {};
     },
 
     onEvent(cb) {

@@ -23,6 +23,7 @@ const defaultSettings: Settings = {
   scanWhileDownloading: true,
   quarantineThreats: true,
   vtApiKey: "",
+  useBuiltInVt: true,
   clamdAddress: "",
   maxDownMbps: null,
   maxUpMbps: null,
@@ -91,6 +92,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     api
       .getSettings()
       .then((s) => setSettings(s))
+      .catch(() => {});
+  }, [api]);
+
+  // авто-проверка обновлений при запуске (только в установленном приложении)
+  useEffect(() => {
+    if (api.isDemo) return;
+    api
+      .checkUpdate()
+      .then((info) => {
+        if (info.updateAvailable) {
+          toast.info(`Доступна версия ${info.latestVersion}`, {
+            description: "Загрузки → Настройки → Обновления",
+          });
+        }
+      })
       .catch(() => {});
   }, [api]);
 

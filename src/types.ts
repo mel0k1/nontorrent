@@ -66,9 +66,33 @@ export interface Settings {
   scanWhileDownloading: boolean;
   quarantineThreats: boolean;
   vtApiKey: string;
+  useBuiltInVt: boolean;
   clamdAddress: string;
   maxDownMbps: number | null;
   maxUpMbps: number | null;
+}
+
+export interface UpdateAsset {
+  name: string;
+  url: string;
+  size: number;
+  kind: "windows-setup" | "linux-deb" | "linux-appimage" | "other";
+}
+
+export interface UpdateInfo {
+  currentVersion: string;
+  latestVersion: string | null;
+  updateAvailable: boolean;
+  notes: string | null;
+  publishedAt: string | null;
+  assets: UpdateAsset[];
+}
+
+export interface UpdateProgress {
+  percent: number;
+  downloadedBytes: number;
+  totalBytes: number;
+  done: boolean;
 }
 
 export type AppEvent =
@@ -91,6 +115,10 @@ export interface Api {
   openFolder(id: number): Promise<void>;
   quarantineEntry(id: string): Promise<void>;
   pickTorrentFile(): Promise<string | null>;
+  checkUpdate(): Promise<UpdateInfo>;
+  downloadUpdate(url: string, name: string): Promise<string>;
+  installUpdate(path: string, kind: string): Promise<void>;
+  onUpdateProgress(cb: (p: UpdateProgress) => void): () => void;
   onEvent(cb: (e: AppEvent) => void): () => void;
   dispose(): void;
 }
