@@ -70,7 +70,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: build --bundles ${{ matrix.bundles }}
+          args: --bundles ${{ matrix.bundles }}
 
       - name: Build & publish release
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
@@ -83,7 +83,7 @@ jobs:
           releaseBody: "Скачайте установщик под вашу ОС: Windows — *-setup.exe (NSIS), Linux — .AppImage или .deb."
           releaseDraft: false
           prerelease: false
-          args: build --bundles ${{ matrix.bundles }}
+          args: --bundles ${{ matrix.bundles }}
 
       - name: Upload artifact
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
