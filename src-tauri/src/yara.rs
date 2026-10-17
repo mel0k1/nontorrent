@@ -72,7 +72,7 @@ impl YaraEngine {
                 files.sort();
                 for f in files {
                     match std::fs::read_to_string(&f) {
-                        Ok(src) => match compiler.add_source(&src) {
+                        Ok(src) => match compiler.add_source(src.as_str()) {
                             Ok(_) => {
                                 rule_count += count_rules(&src);
                                 custom_files += 1;
