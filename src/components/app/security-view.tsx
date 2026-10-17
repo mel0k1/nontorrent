@@ -1,6 +1,7 @@
 import {
   Ban,
   Binary,
+  ChevronDown,
   Fingerprint,
   HardDrive,
   ShieldAlert,
@@ -136,6 +137,8 @@ const PIPELINE = [
 export function SecurityView() {
   const { scanLog, quarantine, api } = useAppState();
   const [info, setInfo] = useState<SecurityInfo | null>(null);
+  // «Как работает проверка» — справка: по умолчанию скрыта, открывается кликом
+  const [pipelineOpen, setPipelineOpen] = useState(false);
 
   useEffect(() => {
     api
@@ -302,27 +305,43 @@ export function SecurityView() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Как работает проверка</CardTitle>
-          <CardDescription>
-            Конвейер безопасности NonTorrent — от куска торрента до вердикта
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-          {PIPELINE.map((step, i) => (
-            <div key={step.title} className="rounded-md border bg-secondary/30 p-3">
-              <div className="flex items-center gap-2">
-                <step.icon className="h-4 w-4 text-primary" />
-                <span className="text-xs font-semibold">
-                  {i + 1}. {step.title}
-                </span>
+        <button
+          type="button"
+          onClick={() => setPipelineOpen((v) => !v)}
+          aria-expanded={pipelineOpen}
+          className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
+        >
+          <div>
+            <CardTitle className="text-base">Как работает проверка</CardTitle>
+            <CardDescription className="mt-1">
+              {PIPELINE.length} ступеней конвейера безопасности — от куска
+              торрента до вердикта
+            </CardDescription>
+          </div>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+              pipelineOpen && "rotate-180"
+            )}
+          />
+        </button>
+        {pipelineOpen && (
+          <CardContent className="grid gap-3 border-t pt-5 md:grid-cols-3 xl:grid-cols-6">
+            {PIPELINE.map((step, i) => (
+              <div key={step.title} className="rounded-md border bg-secondary/30 p-3">
+                <div className="flex items-center gap-2">
+                  <step.icon className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-semibold">
+                    {i + 1}. {step.title}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                  {step.text}
+                </p>
               </div>
-              <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                {step.text}
-              </p>
-            </div>
-          ))}
-        </CardContent>
+            ))}
+          </CardContent>
+        )}
       </Card>
     </div>
   );

@@ -92,8 +92,8 @@ export function AddTorrentDialog({
                 Проверять на вирусы во время скачивания
               </Label>
               <p className="text-xs text-muted-foreground">
-                SHA-256, эвристика, clamd и VirusTotal — по мере появления
-                готовых файлов.
+                Файлы проверяются по мере скачивания — не дожидаясь конца
+                раздачи. Как именно — в разделе «Безопасность».
               </p>
             </div>
             <Switch
