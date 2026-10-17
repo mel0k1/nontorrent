@@ -41,6 +41,32 @@ export interface Torrent {
   scan: TorrentScanState | null;
 }
 
+/** Один файл внутри раздачи (детальная панель) */
+export interface TorrentFile {
+  index: number;
+  name: string;
+  sizeBytes: number;
+  downloadedBytes: number;
+  included: boolean;
+  verdict: ScanVerdict | null;
+}
+
+/** Детальная панель раздачи */
+export interface TorrentDetails extends Torrent {
+  files: TorrentFile[];
+}
+
+/** Файл в карантине */
+export interface QuarantineItem {
+  /** Имя *.quarantined-файла в папке карантина (идентификатор) */
+  name: string;
+  original: string;
+  fileName: string;
+  sizeBytes: number;
+  sha256: string | null;
+  quarantinedAt: number | null;
+}
+
 export interface ScanLogEntry {
   id: string;
   file: string;
@@ -75,6 +101,10 @@ export interface Settings {
   autostart: boolean;
   schedulerEnabled: boolean;
   schedulerRules: SchedulerRule[];
+  /** Пауза всех раздач при обнаружении угрозы */
+  pauseOnThreat: boolean;
+  /** Watch-папка: пусто = выключено */
+  watchDir: string;
 }
 
 export interface SchedulerRule {
@@ -131,16 +161,22 @@ export interface Api {
   pauseAll(): Promise<void>;
   resumeAll(): Promise<void>;
   getTorrents(): Promise<Torrent[]>;
+  getTorrentDetails(id: number): Promise<TorrentDetails>;
+  setTorrentFiles(id: number, indices: number[]): Promise<void>;
   getStats(): Promise<SessionStats>;
   getScanLog(): Promise<ScanLogEntry[]>;
   getSettings(): Promise<Settings>;
   saveSettings(s: Settings): Promise<void>;
   openFolder(id: number): Promise<void>;
   quarantineEntry(id: string): Promise<void>;
+  listQuarantine(): Promise<QuarantineItem[]>;
+  restoreQuarantine(name: string): Promise<void>;
+  deleteQuarantine(name: string): Promise<void>;
   getAutostart(): Promise<boolean>;
   setAutostart(enabled: boolean): Promise<void>;
   getSecurityInfo(): Promise<SecurityInfo>;
   pickTorrentFile(): Promise<string | null>;
+  pickFolder(): Promise<string | null>;
   checkUpdate(): Promise<UpdateInfo>;
   downloadUpdate(url: string, name: string): Promise<string>;
   installUpdate(path: string, kind: string): Promise<void>;

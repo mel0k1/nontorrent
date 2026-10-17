@@ -63,7 +63,8 @@ pub struct SchedulerRule {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
+// default: настройки, сохранённые старой версией, читаются без сброса на дефолт
+#[serde(rename_all = "camelCase", default)]
 pub struct SettingsDto {
     pub download_dir: String,
     pub scan_while_downloading: bool,
@@ -82,6 +83,10 @@ pub struct SettingsDto {
     /// Планировщик скорости
     pub scheduler_enabled: bool,
     pub scheduler_rules: Vec<SchedulerRule>,
+    /// Пауза всех раздач при обнаружении угрозы
+    pub pause_on_threat: bool,
+    /// Watch-папка: пусто = выключено; *.torrent из неё добавляются автоматически
+    pub watch_dir: String,
 }
 
 impl Default for SettingsDto {
@@ -100,6 +105,8 @@ impl Default for SettingsDto {
             autostart: false,
             scheduler_enabled: false,
             scheduler_rules: Vec::new(),
+            pause_on_threat: true,
+            watch_dir: String::new(),
         }
     }
 }
@@ -112,6 +119,40 @@ pub struct SecurityInfoDto {
     pub custom_rule_files: u32,
     pub vt_cache_entries: u32,
     pub quarantined_files: u32,
+}
+
+/// Один файл внутри раздачи (детальная панель)
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct TorrentFileDto {
+    pub index: u32,
+    pub name: String,
+    pub size_bytes: u64,
+    pub downloaded_bytes: u64,
+    pub included: bool,
+    pub verdict: Option<String>,
+}
+
+/// Детальная панель раздачи: базовый DTO + файлы
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct TorrentDetailsDto {
+    #[serde(flatten)]
+    pub torrent: TorrentDto,
+    pub files: Vec<TorrentFileDto>,
+}
+
+/// Файл в карантине
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct QuarantineItemDto {
+    /// Имя *.quarantined-файла в папке карантина (идентификатор)
+    pub name: String,
+    pub original: String,
+    pub file_name: String,
+    pub size_bytes: u64,
+    pub sha256: Option<String>,
+    pub quarantined_at: Option<i64>,
 }
 
 #[derive(Serialize, Clone, Debug, Default)]

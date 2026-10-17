@@ -33,6 +33,17 @@ export function fmtTime(epochMs: number): string {
   });
 }
 
+export function fmtDate(epochMs: number): string {
+  const d = new Date(epochMs);
+  return d.toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function shortHash(sha: string | null): string {
   if (!sha) return "—";
   return `${sha.slice(0, 8)}…${sha.slice(-4)}`;

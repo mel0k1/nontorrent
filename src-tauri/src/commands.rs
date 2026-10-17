@@ -4,6 +4,7 @@ use librqbit::{Session, api::TorrentIdOrHash};
 use tauri::{AppHandle, Manager};
 
 use crate::{engine, settings, types::*, AppState};
+use std::path::PathBuf;
 
 async fn session_or_err(app: &AppHandle) -> Result<Arc<Session>, String> {
     engine::get_session(app).await
@@ -42,6 +43,212 @@ pub async fn add_torrent(
 pub async fn list_torrents(app: AppHandle) -> Result<Vec<TorrentDto>, String> {
     let session = session_or_err(&app).await?;
     Ok(engine::snapshot(&app, &session).await)
+}
+
+/// Детальная панель раздачи: базовые поля + файлы с вердиктами
+#[tauri::command]
+pub async fn get_torrent_details(app: AppHandle, id: u32) -> Result<TorrentDetailsDto, String> {
+    let session = session_or_err(&app).await?;
+    let handle = session
+        .get(TorrentIdOrHash::Id(id as usize))
+        .ok_or("раздача не найдена")?;
+    let state = app.state::<AppState>();
+    let base = engine::build_dto(&state, id, &handle);
+
+    let output = handle.output_folder().to_path_buf();
+    let only_files = handle.only_files();
+    let md_files: Vec<(u32, String, u64)> = handle
+        .with_metadata(|md| {
+            md.file_infos
+                .iter()
+                .enumerate()
+                .map(|(i, fi)| {
+                    (
+                        i as u32,
+                        fi.relative_filename.to_string_lossy().to_string(),
+                        fi.len,
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let scans = state.scans.lock().unwrap().clone();
+    let mut files = Vec::with_capacity(md_files.len());
+    for (index, rel, size) in md_files {
+        let included = only_files
+            .as_ref()
+            .map(|o| o.contains(&(index as usize)))
+            .unwrap_or(true);
+        let full = output.join(&rel);
+        // сколько файла уже на диске — так же определяет готовность и сканер
+        let on_disk = tokio::fs::metadata(&full).await.map(|m| m.len()).unwrap_or(0);
+        let verdict = scans
+            .iter()
+            .find(|r| r.file == full.to_string_lossy())
+            .or_else(|| scans.iter().find(|r| r.file.ends_with(&rel)))
+            .map(|r| r.verdict.clone());
+        files.push(TorrentFileDto {
+            index,
+            name: rel,
+            size_bytes: size,
+            downloaded_bytes: on_disk.min(size),
+            included,
+            verdict,
+        });
+    }
+
+    Ok(TorrentDetailsDto {
+        torrent: base,
+        files,
+    })
+}
+
+/// Выборочная скачка: оставить в раздаче только указанные файлы
+#[tauri::command]
+pub async fn set_torrent_files(app: AppHandle, id: u32, indices: Vec<u32>) -> Result<(), String> {
+    let session = session_or_err(&app).await?;
+    let handle = session
+        .get(TorrentIdOrHash::Id(id as usize))
+        .ok_or("раздача не найдена")?;
+    let set: std::collections::HashSet<usize> = indices.into_iter().map(|i| i as usize).collect();
+    session
+        .update_only_files(&handle, &set)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+// ---------- карантин: список / восстановление / удаление ----------
+
+fn quarantine_meta(target: &std::path::Path) -> (String, Option<String>, Option<i64>) {
+    let meta_path = PathBuf::from(format!("{}.meta.json", target.display()));
+    std::fs::read_to_string(meta_path)
+        .ok()
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+        .map(|j| {
+            (
+                j["original"].as_str().unwrap_or("").to_string(),
+                j["sha256"].as_str().map(|s| s.to_string()),
+                j["quarantinedAt"].as_i64(),
+            )
+        })
+        .unwrap_or((String::new(), None, None))
+}
+
+fn quarantine_target(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
+    let dir = settings::quarantine_dir(app)?;
+    if name.is_empty() || name.contains('/') || name.contains('\\') || name.contains("..") {
+        return Err("недопустимое имя файла".into());
+    }
+    let target = dir.join(name);
+    if target.parent() != Some(dir.as_path()) {
+        return Err("недопустимое имя файла".into());
+    }
+    Ok(target)
+}
+
+#[tauri::command]
+pub async fn list_quarantine(app: AppHandle) -> Result<Vec<QuarantineItemDto>, String> {
+    let dir = settings::quarantine_dir(&app)?;
+    let mut out = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(&dir) {
+        let mut paths: Vec<PathBuf> = rd.filter_map(|e| e.ok()).map(|e| e.path()).collect();
+        paths.sort();
+        for p in paths {
+            let ext = p.extension().and_then(|x| x.to_str()).unwrap_or("");
+            if ext != "quarantined" {
+                continue;
+            }
+            let name = p
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let size = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
+            let (original, sha256, quarantined_at) = quarantine_meta(&p);
+            let file_name = std::path::Path::new(&original)
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| name.trim_end_matches(".quarantined").to_string());
+            out.push(QuarantineItemDto {
+                name,
+                original,
+                file_name,
+                size_bytes: size,
+                sha256,
+                quarantined_at,
+            });
+        }
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub async fn restore_quarantine(app: AppHandle, name: String) -> Result<(), String> {
+    let target = quarantine_target(&app, &name)?;
+    if !target.exists() {
+        return Err("файл не найден".into());
+    }
+    let (original, sha256, _) = quarantine_meta(&target);
+
+    let dest = if original.is_empty() {
+        // исходный путь неизвестен — вернём в папку загрузок
+        let dl = {
+            let state = app.state::<AppState>();
+            let v = state.settings.lock().unwrap().download_dir.clone();
+            v
+        };
+        if dl.trim().is_empty() {
+            return Err("исходный путь неизвестен — укажите папку загрузок в настройках".into());
+        }
+        let stem = target
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "restored".into());
+        PathBuf::from(dl).join(stem)
+    } else {
+        PathBuf::from(&original)
+    };
+
+    if dest.exists() {
+        return Err("по исходному пути уже есть файл".into());
+    }
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    if std::fs::rename(&target, &dest).is_err() {
+        std::fs::copy(&target, &dest).map_err(|e| e.to_string())?;
+        std::fs::remove_file(&target).map_err(|e| e.to_string())?;
+    }
+    let _ = std::fs::remove_file(PathBuf::from(format!("{}.meta.json", target.display())));
+
+    // синхронизируем журнал: файл больше не в карантине
+    {
+        let state = app.state::<AppState>();
+        let mut scans = state.scans.lock().unwrap();
+        for r in scans.iter_mut() {
+            if !r.quarantined {
+                continue;
+            }
+            let by_path = !original.is_empty() && r.file == original;
+            let by_sha = sha256.is_some() && r.sha256 == sha256;
+            if by_path || by_sha {
+                r.quarantined = false;
+            }
+        }
+    }
+    tracing::info!("восстановлено из карантина: {}", dest.display());
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_quarantine(app: AppHandle, name: String) -> Result<(), String> {
+    let target = quarantine_target(&app, &name)?;
+    if target.exists() {
+        std::fs::remove_file(&target).map_err(|e| e.to_string())?;
+    }
+    let _ = std::fs::remove_file(PathBuf::from(format!("{}.meta.json", target.display())));
+    tracing::info!("удалено из карантина: {}", name);
+    Ok(())
 }
 
 #[tauri::command]

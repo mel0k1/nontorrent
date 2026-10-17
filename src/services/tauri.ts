@@ -3,11 +3,13 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type {
   Api,
+  QuarantineItem,
   ScanLogEntry,
   SecurityInfo,
   SessionStats,
   Settings,
   Torrent,
+  TorrentDetails,
   UpdateInfo,
   UpdateProgress,
 } from "@/types";
@@ -60,6 +62,14 @@ export function createTauriApi(): Api {
       return invoke<Torrent[]>("list_torrents");
     },
 
+    async getTorrentDetails(id): Promise<TorrentDetails> {
+      return invoke<TorrentDetails>("get_torrent_details", { id });
+    },
+
+    async setTorrentFiles(id, indices) {
+      await invoke("set_torrent_files", { id, indices });
+    },
+
     async getStats(): Promise<SessionStats> {
       return invoke<SessionStats>("session_stats");
     },
@@ -84,12 +94,33 @@ export function createTauriApi(): Api {
       await invoke("quarantine_entry", { id });
     },
 
+    async listQuarantine(): Promise<QuarantineItem[]> {
+      return invoke<QuarantineItem[]>("list_quarantine");
+    },
+
+    async restoreQuarantine(name) {
+      await invoke("restore_quarantine", { name });
+    },
+
+    async deleteQuarantine(name) {
+      await invoke("delete_quarantine", { name });
+    },
+
     async pickTorrentFile(): Promise<string | null> {
       const picked = await open({
         multiple: false,
         directory: false,
         title: "Выберите .torrent-файл",
         filters: [{ name: "Torrent-файлы", extensions: ["torrent"] }],
+      });
+      return typeof picked === "string" ? picked : null;
+    },
+
+    async pickFolder(): Promise<string | null> {
+      const picked = await open({
+        multiple: false,
+        directory: true,
+        title: "Выберите папку",
       });
       return typeof picked === "string" ? picked : null;
     },

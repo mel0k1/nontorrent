@@ -105,7 +105,13 @@ function ScanBadge({ torrent }: { torrent: Torrent }) {
   return null;
 }
 
-export function TorrentRow({ torrent }: { torrent: Torrent }) {
+export function TorrentRow({
+  torrent,
+  onOpen,
+}: {
+  torrent: Torrent;
+  onOpen?: () => void;
+}) {
   const { pause, resume, remove, openFolder } = useAppState();
   const { Icon, tint } = fileMeta(torrent.name);
   const isActive =
@@ -126,7 +132,18 @@ export function TorrentRow({ torrent }: { torrent: Torrent }) {
   };
 
   return (
-    <div className="group flex items-center gap-4 rounded-lg border bg-card px-4 py-3 transition-colors hover:bg-accent/30">
+    <div
+      onClick={onOpen}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (onOpen && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className="group flex cursor-pointer items-center gap-4 rounded-lg border bg-card px-4 py-3 transition-colors hover:bg-accent/30"
+    >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-secondary">
         <Icon className={cn("h-5 w-5", tint)} />
       </div>
@@ -191,11 +208,12 @@ export function TorrentRow({ torrent }: { torrent: Torrent }) {
             variant="ghost"
             size="icon"
             className="h-8 w-8 shrink-0 text-muted-foreground"
+            onClick={(e) => e.stopPropagation()}
           >
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuContent align="end" className="w-52" onClick={(e) => e.stopPropagation()}>
           {torrent.status === "paused" ? (
             <DropdownMenuItem onClick={menuAction(() => resume(torrent.id))}>
               <Play /> Продолжить

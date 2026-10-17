@@ -3,14 +3,18 @@ import {
   Binary,
   ChevronDown,
   Fingerprint,
+  FolderLock,
   HardDrive,
+  ListChecks,
+  RotateCcw,
   ShieldAlert,
   ShieldCheck,
   ShieldQuestion,
   Sigma,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,15 +32,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAppState } from "@/hooks/use-app-state";
-import { fmtBytes, fmtTime, shortHash } from "@/lib/format";
+import { fmtBytes, fmtDate, fmtTime, shortHash } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { ScanVerdict, SecurityInfo } from "@/types";
+import type { QuarantineItem, ScanVerdict, SecurityInfo } from "@/types";
 
 function VerdictBadge({ verdict }: { verdict: ScanVerdict }) {
   switch (verdict) {
@@ -139,6 +144,20 @@ export function SecurityView() {
   const [info, setInfo] = useState<SecurityInfo | null>(null);
   // «Как работает проверка» — справка: по умолчанию скрыта, открывается кликом
   const [pipelineOpen, setPipelineOpen] = useState(false);
+  // карантин: список + флаг занятости на время действий
+  const [quarantineItems, setQuarantineItems] = useState<QuarantineItem[]>([]);
+  const [qBusy, setQBusy] = useState(false);
+  // имя файла, для которого нажали «Удалить» и ждём подтверждения
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  const loadQuarantine = useCallback(() => {
+    setQBusy(true);
+    api
+      .listQuarantine()
+      .then(setQuarantineItems)
+      .catch(() => {})
+      .finally(() => setQBusy(false));
+  }, [api]);
 
   useEffect(() => {
     api
@@ -146,6 +165,39 @@ export function SecurityView() {
       .then(setInfo)
       .catch(() => {});
   }, [api, scanLog.length]);
+
+  // карантин: подгружаем сразу и при возврате на страницу
+  useEffect(() => {
+    loadQuarantine();
+  }, [loadQuarantine]);
+
+  async function restoreItem(name: string) {
+    setQBusy(true);
+    try {
+      await api.restoreQuarantine(name);
+      toast.success("Файл восстановлен", {
+        description: "Возвращён по исходному пути",
+      });
+    } catch (e) {
+      toast.error("Не удалось восстановить", { description: String(e) });
+    } finally {
+      setQBusy(false);
+      loadQuarantine();
+    }
+  }
+
+  async function deleteItem(name: string) {
+    setQBusy(true);
+    try {
+      await api.deleteQuarantine(name);
+      toast.success("Файл удалён навсегда");
+    } catch (e) {
+      toast.error("Не удалось удалить", { description: String(e) });
+    } finally {
+      setQBusy(false);
+      loadQuarantine();
+    }
+  }
 
   const malicious = scanLog.filter((e) => e.verdict === "malicious").length;
   const suspicious = scanLog.filter((e) => e.verdict === "suspicious").length;
@@ -191,16 +243,34 @@ export function SecurityView() {
         />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Журнал проверок</CardTitle>
-          <CardDescription>
-            Каждый файл проходит многоступенчатую проверку во время скачивания
-            и повторную — после завершения раздачи.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {scanLog.length === 0 ? (
+      <Tabs defaultValue="journal">
+        <TabsList>
+          <TabsTrigger value="journal" className="gap-1.5">
+            <ListChecks className="h-3.5 w-3.5" />
+            Журнал проверок
+          </TabsTrigger>
+          <TabsTrigger value="quarantine" className="gap-1.5">
+            <FolderLock className="h-3.5 w-3.5" />
+            Карантин
+            {quarantineItems.length > 0 && (
+              <span className="rounded-full bg-destructive/20 px-1.5 text-[10px] font-semibold text-destructive">
+                {quarantineItems.length}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="journal">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Журнал проверок</CardTitle>
+              <CardDescription>
+                Каждый файл проходит многоступенчатую проверку во время скачивания
+                и повторную — после завершения раздачи.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+            {scanLog.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-12 text-center">
               <ShieldCheck className="h-8 w-8 text-success" />
               <p className="text-sm text-muted-foreground">
@@ -301,8 +371,119 @@ export function SecurityView() {
               </TableBody>
             </Table>
           )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="quarantine">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Карантин</CardTitle>
+              <CardDescription>
+                Угрозы изолируются здесь — файл не запустится случайно.
+                Восстановите, если вердикт оказался ложным, или удалите навсегда.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {quarantineItems.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-12 text-center">
+                  <FolderLock className="h-8 w-8 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    Карантин пуст — угроз пока не изолировано
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[40%]">Файл</TableHead>
+                      <TableHead>Размер</TableHead>
+                      <TableHead>SHA-256</TableHead>
+                      <TableHead>Помещён</TableHead>
+                      <TableHead className="text-right">Действия</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {quarantineItems.map((q) => {
+                      const confirming = confirmDelete === q.name;
+                      return (
+                        <TableRow key={q.name}>
+                          <TableCell className="max-w-[280px]">
+                            <div className="truncate text-sm font-medium">
+                              {q.fileName}
+                            </div>
+                            <div
+                              className="truncate text-xs text-muted-foreground"
+                              title={q.original}
+                            >
+                              {q.original || "исходный путь неизвестен"}
+                            </div>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-xs tabular-nums">
+                            {fmtBytes(q.sizeBytes)}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span>{shortHash(q.sha256)}</span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="font-mono">
+                                {q.sha256 ?? "—"}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                            {q.quarantinedAt ? fmtDate(q.quarantinedAt) : "—"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1.5"
+                                disabled={qBusy}
+                                onClick={() => restoreItem(q.name)}
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                                Восстановить
+                              </Button>
+                              <Button
+                                variant={confirming ? "destructive" : "ghost"}
+                                size="sm"
+                                className={cn(
+                                  "gap-1.5",
+                                  !confirming && "text-destructive hover:text-destructive"
+                                )}
+                                disabled={qBusy}
+                                onClick={() => {
+                                  if (!confirming) {
+                                    setConfirmDelete(q.name);
+                                    setTimeout(() => {
+                                      setConfirmDelete((cur) =>
+                                        cur === q.name ? null : cur
+                                      );
+                                    }, 4000);
+                                    return;
+                                  }
+                                  setConfirmDelete(null);
+                                  deleteItem(q.name);
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                {confirming ? "Точно?" : "Удалить"}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <Card>
         <button

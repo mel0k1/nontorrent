@@ -4,6 +4,7 @@ import {
   Download as DownloadIcon,
   Fingerprint,
   FolderOpen,
+  FolderSearch,
   Gauge,
   Info,
   MonitorCog,
@@ -406,6 +407,13 @@ export function SettingsView() {
           />
 
           <ToggleRow
+            title="Пауза всех раздач при угрозе"
+            description="Как только какой-то файл получает вердикт «угроза» — вся сессия останавливается, чтобы вредонос не докачался. Карантин работает независимо."
+            checked={draft.pauseOnThreat}
+            onChange={(v) => setDraft({ ...draft, pauseOnThreat: v })}
+          />
+
+          <ToggleRow
             title="Автоматический карантин угроз"
             description="Файл с вердиктом «угроза» изолируется в отдельную папку и помечается в журнале."
             checked={draft.quarantineThreats}
@@ -453,6 +461,40 @@ export function SettingsView() {
                 только хэш.
               </p>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <FolderSearch className="h-4 w-4 text-primary" />
+            Watch-папка
+          </CardTitle>
+          <CardDescription>
+            Кидай .torrent-файлы в папку — NonTorrent добавит их сам. Обработанные
+            файлы переносятся в подпапку «added». Пусто — выключено.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Input
+              value={draft.watchDir}
+              onChange={(e) => setDraft({ ...draft, watchDir: e.target.value })}
+              placeholder="путь к папке, за которой следить"
+              className="font-mono text-xs"
+            />
+            <Button
+              variant="outline"
+              className="shrink-0 gap-1.5"
+              onClick={async () => {
+                const dir = await api.pickFolder();
+                if (dir) setDraft((d) => ({ ...d, watchDir: dir }));
+              }}
+            >
+              <FolderOpen className="h-4 w-4" />
+              Обзор…
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -598,7 +640,7 @@ export function SettingsView() {
               <p className="text-sm">
                 Текущая версия{" "}
                 <span className="font-mono text-xs text-muted-foreground">
-                  {updateInfo?.currentVersion ?? "0.2.0"}
+                  {updateInfo?.currentVersion ?? "0.3.0"}
                 </span>
                 {updateInfo?.updateAvailable && (
                   <>

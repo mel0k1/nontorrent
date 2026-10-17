@@ -33,6 +33,9 @@ const defaultSettings: Settings = {
   autostart: false,
   schedulerEnabled: false,
   schedulerRules: [],
+  // угроза → пауза всей сессии (отключается в настройках)
+  pauseOnThreat: true,
+  watchDir: "",
 };
 
 const zeroStats: SessionStats = {
@@ -50,6 +53,9 @@ interface AppStateValue {
   settings: Settings;
   view: ViewId;
   setView: (v: ViewId) => void;
+  /** Раздача, открытая в детальной панели (null = список) */
+  selectedTorrentId: number | null;
+  setSelectedTorrentId: (id: number | null) => void;
   query: string;
   setQuery: (q: string) => void;
   addTorrent: (source: string, scan: boolean) => Promise<void>;
@@ -72,6 +78,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [view, setView] = useState<ViewId>("downloads");
   const [query, setQuery] = useState("");
+  const [selectedTorrentId, setSelectedTorrentId] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -194,6 +201,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     settings,
     view,
     setView,
+    selectedTorrentId,
+    setSelectedTorrentId,
     query,
     setQuery,
     ...actions,

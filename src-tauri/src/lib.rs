@@ -8,6 +8,7 @@ mod types;
 mod updates;
 mod vt;
 mod vt_cache;
+mod watch;
 mod yara;
 
 use std::{
@@ -39,6 +40,8 @@ pub struct AppState {
     /// YARA-движок (компилируется при старте, правила из бинаря + папка пользователя)
     pub yara: Arc<Mutex<Option<yara::YaraEngine>>>,
     pub update_busy: Arc<std::sync::atomic::AtomicBool>,
+    /// Watch-папка: файлы, которые не удалось убрать после обработки (не добавлять повторно)
+    pub watch_seen: Arc<Mutex<HashSet<String>>>,
 }
 
 impl AppState {
@@ -59,6 +62,7 @@ impl AppState {
             vt_last: Arc::new(Mutex::new(None)),
             yara: Arc::new(Mutex::new(None)),
             update_busy: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            watch_seen: Arc::new(Mutex::new(HashSet::new())),
         }
     }
 }
@@ -104,6 +108,7 @@ pub fn run() {
 
             tray::build(app.handle())?;
             scheduler::spawn(app.handle().clone());
+            watch::spawn(app.handle().clone());
             engine::bootstrap(app.handle().clone());
             Ok(())
         })
@@ -126,6 +131,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::add_torrent,
             commands::list_torrents,
+            commands::get_torrent_details,
+            commands::set_torrent_files,
             commands::pause_torrent,
             commands::resume_torrent,
             commands::remove_torrent,
@@ -137,6 +144,9 @@ pub fn run() {
             commands::save_settings,
             commands::open_folder,
             commands::quarantine_entry,
+            commands::list_quarantine,
+            commands::restore_quarantine,
+            commands::delete_quarantine,
             commands::get_autostart,
             commands::set_autostart,
             commands::get_security_info,

@@ -1,11 +1,13 @@
 import type {
   Api,
   AppEvent,
+  QuarantineItem,
   ScanLogEntry,
   SecurityInfo,
   SessionStats,
   Settings,
   Torrent,
+  TorrentDetails,
 } from "@/types";
 
 /*
@@ -218,7 +220,20 @@ export function createMockApi(): Api {
     schedulerRules: [
       { days: [0, 1, 2, 3, 4], start: "09:00", end: "23:00", downMbps: 50, upMbps: 10 },
     ],
+    pauseOnThreat: true,
+    watchDir: "",
   };
+
+  let quarantine: QuarantineItem[] = [
+    {
+      name: "autoplay.scr.abc123def456.quarantined",
+      original: `${DL_DIR}/Sintel.2010.1080p.x264-BLUEBIRD/autoplay.scr`,
+      fileName: "autoplay.scr",
+      sizeBytes: 312_320,
+      sha256: hex(64),
+      quarantinedAt: Date.now() - 600_000,
+    },
+  ];
 
   const securityInfo: SecurityInfo = {
     yaraRules: 10,
@@ -441,13 +456,62 @@ export function createMockApi(): Api {
       );
     },
 
+    async getTorrentDetails(id): Promise<TorrentDetails> {
+      const t = torrents.find((x) => x.id === id);
+      if (!t) throw new Error("раздача не найдена");
+      // имитируем файлы раздачи: сам файл + служебные части
+      const isMulti = t.scan && t.scan.totalFiles > 1;
+      const parts = isMulti ? (t.scan?.totalFiles ?? 4) : 1;
+      const files = Array.from({ length: parts }, (_, i) => {
+        const per = Math.floor(t.sizeBytes / parts);
+        const done = Math.min(per, Math.max(0, t.downloadedBytes - per * i));
+        const logEntry = scanLog.find(
+          (e) => e.torrentName === t.name && e.file.includes(`part-${String(i + 1).padStart(2, "0")}`),
+        );
+        return {
+          index: i,
+          name: parts > 1 ? `part-${String(i + 1).padStart(2, "0")}.bin` : t.name,
+          sizeBytes: per,
+          downloadedBytes: done,
+          included: true,
+          verdict: (logEntry?.verdict ?? null) as TorrentDetails["files"][number]["verdict"],
+        };
+      });
+      const { baseDown: _a, baseUp: _b, threatAtProgress: _c, threatPushed: _d, ...rest } = t;
+      void _a; void _b; void _c; void _d;
+      return { ...(rest as Torrent), files };
+    },
+
+    async setTorrentFiles(id, indices) {
+      void id; void indices;
+      // в демо-режиме выбор файлов ни на что не влияет
+    },
+
+    async listQuarantine() {
+      return quarantine;
+    },
+
+    async restoreQuarantine(name) {
+      quarantine = quarantine.filter((q) => q.name !== name);
+      securityInfo.quarantinedFiles = quarantine.length;
+    },
+
+    async deleteQuarantine(name) {
+      quarantine = quarantine.filter((q) => q.name !== name);
+      securityInfo.quarantinedFiles = quarantine.length;
+    },
+
+    async pickFolder() {
+      return null;
+    },
+
     async pickTorrentFile() {
       return null;
     },
 
     async checkUpdate() {
       return {
-        currentVersion: "0.2.0",
+        currentVersion: "0.3.0",
         latestVersion: null,
         updateAvailable: false,
         notes: null,

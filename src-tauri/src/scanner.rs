@@ -237,6 +237,18 @@ async fn publish(app: &AppHandle, torrent_id: Option<u32>, mut report: ScanRepor
     let _ = app.emit("scan://completed", &report);
     if report.verdict == "malicious" {
         tracing::warn!("угроза: {}", report.file);
+
+        // автопауза всей сессии: раздача с угрозой останавливается сразу,
+        // не дожидаясь ручного карантина (настраивается в «Антивирусе»)
+        let pause_all = state.settings.lock().unwrap().pause_on_threat;
+        if pause_all {
+            let app2 = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = crate::engine::set_all_paused(&app2, true).await {
+                    tracing::warn!("автопауза при угрозе: {e}");
+                }
+            });
+        }
     }
 }
 
