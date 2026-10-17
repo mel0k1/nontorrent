@@ -1,7 +1,7 @@
 {
   "name": "nontorrent",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "NonTorrent — torrent client with built-in malware scanning. Rust + Tauri + shadcn/ui.",
   "type": "module",
   "scripts": {

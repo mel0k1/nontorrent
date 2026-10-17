@@ -1,6 +1,6 @@
 [package]
 name = "nontorrent"
-version = "0.4.0"
+version = "0.4.1"
 description = "NonTorrent — торрент-клиент со встроенной проверкой на вирусы"
 authors = ["mel0k1"]
 edition = "2021"
